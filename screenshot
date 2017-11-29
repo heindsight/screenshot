@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+
+set -o nounset
+set -o errexit
+set -o pipefail
+
+USAGE="Usage: ${0##*/} [OPTIONS] [filename]
+    Capture a screenshot and save the image to filename
+
+    If filename is ommited, a file name is constructed from the window instance
+    name and current time.
+
+    Options:
+        -a :  Capture the currently active window instead of the whole screen
+        -i :  Interactive mode (select an area of the screen to capture)
+        -n :  Display a notification
+        -h :  Display this help text"
+
+declare -A DEFAULTS=([WINDOW]='root' [INTERACTIVE]= [NOTIFY]=)
+
+function window_instance_name() {
+    local WINDOW_ID=$1
+    local -n WINDOW_INSTANCE=$2
+
+    if [[ "${WINDOW_ID:-root}" == 'root' ]]; then
+        WINDOW_INSTANCE='root'
+    else
+        WINDOW_INSTANCE=$(xprop -id "${WINDOW_ID}" \
+            | sed -n '/WM_CLASS/s/.* = "\([^\"]*\)".*/\1/p')
+    fi
+
+    if [[ -z "${WINDOW_INSTANCE}" ]]; then
+        WINDOW_INSTANCE='window'
+    fi
+}
+
+function show_notification() {
+    local DEST=$1
+    local ERROR=$2
+
+    if [[ "${ERROR}" ]]; then
+        notify-send "Screenshot failed: ${ERROR}"
+    else
+        notify-send "Screenshot saved to ${DEST}"
+    fi
+}
+
+function get_active_window() {
+    local -n ACTIVE=$1
+
+    ACTIVE=$(xprop -root | grep '_NET_ACTIVE_WINDOW(WINDOW)'  | cut -d' ' -f5)
+}
+
+function parse_args() {
+    local -n FILENAME=$1
+    local -n WIN_ID=$2
+    local -n INTERACTIVE_MODE=$3
+    local -n NOTIFY=$4
+
+    shift 4
+
+    local NAME
+    local OPT
+
+    while getopts 'ahin' OPT "$@"; do
+        case "${OPT}" in
+            'a')
+                get_active_window WIN_ID
+                ;;
+            'i')
+                INTERACTIVE_MODE='YES'
+                ;;
+            'n')
+                NOTIFY='YES'
+                ;;
+            'h')
+                echo "${USAGE}"
+                exit
+                ;;
+            *)
+                echo "${USAGE}" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    shift $((OPTIND-1))
+
+    if [[ $# -eq 0 ]]; then
+        FILENAME=
+    elif [[ $# -eq 1 ]]; then
+        FILENAME="$1"
+    else
+        echo "${USAGE}" >&2
+        exit 1
+    fi
+}
+
+function capture_screenshot() {
+    local -n FILENAME=$1
+    local WINDOW=$2
+    local INTERACTIVE=$3
+    local -n ERR=$4
+
+    local -a IMPORTOPTS=('-border')
+    local DATEFMT='%FT%T.%3N%:z'
+    local TMPFILE=$(tempfile)
+    local PREFIX=
+
+    if [[ ! "${INTERACTIVE}" ]]; then
+        IMPORTOPTS[${#IMPORTOPTS[@]}]='-window'
+        IMPORTOPTS[${#IMPORTOPTS[@]}]="$WINDOW"
+    fi
+
+    if [[ ! ${FILENAME} ]]; then
+        if [[ "${INTERACTIVE}" ]]; then
+            PREFIX='screenshot'
+        else
+            window_instance_name "${WINDOW}" PREFIX
+        fi
+    fi
+
+    ERR=$(import "${IMPORTOPTS[@]}" "png:${TMPFILE}" || : 2>&1 1>/dev/null) || :
+
+    if [[ ! "${ERR}" ]]; then
+        if [[ ! "${FILENAME}" ]]; then
+            FILENAME="${HOME}/${PREFIX}-$(date +${DATEFMT}).png"
+        fi
+        ERR=$(mv "${TMPFILE}" "${FILENAME}" || : 2>&1 1>/dev/null) || :
+    fi
+}
+
+function main() {
+    local DEST_FILENAME
+    local WINDOW=${DEFAULTS[WINDOW]}
+    local INTERACTIVE=${DEFAULTS[INTERACTIVE]}
+    local NOTIFICATION=${DEFAULTS[NOTIFY]}
+
+    local ERROR=
+
+    parse_args DEST_FILENAME WINDOW INTERACTIVE NOTIFICATION "$@"
+
+    capture_screenshot DEST_FILENAME "${WINDOW}" "${INTERACTIVE}" ERROR
+
+    if [[ ${NOTIFICATION} ]]; then
+        show_notification "${DEST_FILENAME}" "${ERROR}"
+    fi
+}
+
+main "$@"
