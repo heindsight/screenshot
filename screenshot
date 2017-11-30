@@ -41,12 +41,12 @@ function show_notification() {
     local NOTIFY_ICON
     local NOTIFY_BODY
 
-    if [[ "${ERROR}" ]]; then
-        NOTIFY_ICON=dialog-error
-        NOTIFY_BODY="Screenshot failed: ${ERROR}"
-    else
+    if [[ -z "${ERROR}" ]]; then
         NOTIFY_ICON=dialog-information
         NOTIFY_BODY="Screenshot saved to ${DEST}"
+    else
+        NOTIFY_ICON=dialog-error
+        NOTIFY_BODY="Screenshot failed: ${ERROR}"
     fi
 
     notify-send -i "${NOTIFY_ICON}" Screenshot "${NOTIFY_BODY}"
@@ -59,14 +59,13 @@ function get_active_window() {
 }
 
 function parse_args() {
-    local -n FILENAME=$1
-    local -n WIN_ID=$2
-    local -n INTERACTIVE_MODE=$3
-    local -n NOTIFY=$4
+    local -n WIN_ID=$1
+    local -n INTERACTIVE_MODE=$2
+    local -n NOTIFY=$3
+    local -n FILENAME=$4
 
     shift 4
 
-    local NAME
     local OPT
 
     while getopts 'ahin' OPT "$@"; do
@@ -96,7 +95,7 @@ function parse_args() {
     if [[ $# -eq 0 ]]; then
         FILENAME=
     elif [[ $# -eq 1 ]]; then
-        FILENAME="$1"
+        FILENAME=$1
     else
         echo "${USAGE}" >&2
         exit 1
@@ -104,36 +103,32 @@ function parse_args() {
 }
 
 function capture_screenshot() {
-    local -n FILENAME=$1
-    local WINDOW=$2
-    local INTERACTIVE=$3
+    local WINDOW=$1
+    local INTERACTIVE=$2
+    local -n FILENAME=$3
     local -n ERR=$4
 
     local -a IMPORTOPTS=('-border')
     local DATEFMT='%FT%T.%3N%:z'
     local TMPFILE=$(tempfile)
-    local PREFIX=
+    local PREFIX='screenshot'
 
-    if [[ ! "${INTERACTIVE}" ]]; then
+    if [[ -z "${INTERACTIVE}" ]]; then
         IMPORTOPTS[${#IMPORTOPTS[@]}]='-window'
-        IMPORTOPTS[${#IMPORTOPTS[@]}]="$WINDOW"
-    fi
+        IMPORTOPTS[${#IMPORTOPTS[@]}]=$WINDOW
 
-    if [[ ! ${FILENAME} ]]; then
-        if [[ "${INTERACTIVE}" ]]; then
-            PREFIX='screenshot'
-        else
+        if [[ -z "${FILENAME}" ]]; then
             window_instance_name "${WINDOW}" PREFIX
         fi
     fi
 
-    ERR=$(import "${IMPORTOPTS[@]}" "png:${TMPFILE}" || : 2>&1 1>/dev/null) || :
+    ERR=$(import "${IMPORTOPTS[@]}" "png:${TMPFILE}" || : 2>&1 1>/dev/null)
 
-    if [[ ! "${ERR}" ]]; then
-        if [[ ! "${FILENAME}" ]]; then
+    if [[ -z "${ERR}" ]]; then
+        if [[ -z "${FILENAME}" ]]; then
             FILENAME="${HOME}/${PREFIX}-$(date +${DATEFMT}).png"
         fi
-        ERR=$(mv "${TMPFILE}" "${FILENAME}" || : 2>&1 1>/dev/null) || :
+        ERR=$(mv "${TMPFILE}" "${FILENAME}" || : 2>&1 1>/dev/null)
     fi
 }
 
@@ -145,11 +140,11 @@ function main() {
 
     local ERROR=
 
-    parse_args DEST_FILENAME WINDOW INTERACTIVE NOTIFICATION "$@"
+    parse_args WINDOW INTERACTIVE NOTIFICATION DEST_FILENAME "$@"
 
-    capture_screenshot DEST_FILENAME "${WINDOW}" "${INTERACTIVE}" ERROR
+    capture_screenshot "${WINDOW}" "${INTERACTIVE}" DEST_FILENAME ERROR
 
-    if [[ ${NOTIFICATION} ]]; then
+    if [[ -n "${NOTIFICATION}" ]]; then
         show_notification "${DEST_FILENAME}" "${ERROR}"
     fi
 }
