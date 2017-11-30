@@ -38,11 +38,18 @@ function show_notification() {
     local DEST=$1
     local ERROR=$2
 
+    local NOTIFY_ICON
+    local NOTIFY_BODY
+
     if [[ "${ERROR}" ]]; then
-        notify-send "Screenshot failed: ${ERROR}"
+        NOTIFY_ICON=dialog-error
+        NOTIFY_BODY="Screenshot failed: ${ERROR}"
     else
-        notify-send "Screenshot saved to ${DEST}"
+        NOTIFY_ICON=dialog-information
+        NOTIFY_BODY="Screenshot saved to ${DEST}"
     fi
+
+    notify-send -i "${NOTIFY_ICON}" Screenshot "${NOTIFY_BODY}"
 }
 
 function get_active_window() {
