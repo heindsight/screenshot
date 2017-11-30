@@ -102,6 +102,21 @@ function parse_args() {
     fi
 }
 
+function get_capture_cmd() {
+    local -n CMD=$1
+
+    if gm import -version | grep -q 'GraphicsMagick'; then
+        # Use GraphicsMagick if available
+        CMD='gm import'
+    elif import -version | grep -q 'ImageMagick'; then
+        # Otherwise try ImageMagick
+        CMD='import'
+    else
+        echo "No supported screencapture command found." >&2
+        exit 2
+    fi
+}
+
 function capture_screenshot() {
     local WINDOW=$1
     local INTERACTIVE=$2
@@ -112,6 +127,9 @@ function capture_screenshot() {
     local DATEFMT='%FT%T.%3N%:z'
     local TMPFILE=$(tempfile)
     local PREFIX='screenshot'
+    local CAPTURE_CMD
+
+    get_capture_cmd CAPTURE_CMD
 
     if [[ -z "${INTERACTIVE}" ]]; then
         IMPORTOPTS[${#IMPORTOPTS[@]}]='-window'

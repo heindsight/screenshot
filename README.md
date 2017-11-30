@@ -1,11 +1,13 @@
 # Screenshot
 
-A script to capture X11 screenshots using the ImageMagick `capture` command.
+A script to capture X11 screenshots using the GraphicsMagick (or ImageMagick)
+`capture` command.
 
 ## Requirements
 
-* [ImageMagick](http://www.imagemagick.org/script/index.php) is required for
-  capturing screenshots.
+* [GraphicsMagick](http://www.graphicsmagick.org/) or
+  [ImageMagick](http://www.imagemagick.org)  is required for capturing
+  screenshots.
 * [libnotify](https://git.gnome.org/browse/libnotify) is required for
   displaying notifications
 
