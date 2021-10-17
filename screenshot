@@ -123,7 +123,7 @@ function capture_screenshot() {
     local -n FILENAME=$3
     local -n ERR=$4
 
-    local -a IMPORTOPTS=('-border')
+    local -a IMPORTOPTS=()
     local DATEFMT='%FT%T.%3N%:z'
     local TMPFILE=$(tempfile)
     local PREFIX='screenshot'
