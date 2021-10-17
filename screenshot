@@ -125,7 +125,7 @@ function capture_screenshot() {
 
     local -a IMPORTOPTS=()
     local DATEFMT='%FT%T.%3N%:z'
-    local TMPFILE=$(tempfile)
+    local TMPFILE=$(mktemp)
     local PREFIX='screenshot'
     local CAPTURE_CMD
 
